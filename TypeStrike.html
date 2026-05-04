@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TypeStrike — Typing Invaders</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#04040f;
+  --surface:#0a0a1f;
+  --accent:#00ffcc;
+  --accent2:#ff3366;
+  --yellow:#ffe600;
+  --text:#c8d8f0;
+  --muted:#4a5a7a;
+  --alien1:#ff3366;
+  --alien2:#aa44ff;
+  --alien3:#ff8800;
+}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Share Tech Mono',monospace;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  overflow:hidden;
+}
+
+/* STARS */
+#stars{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+
+/* HUD */
+#hud{
+  width:100%;
+  max-width:800px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px 20px;
+  z-index:10;
+  border-bottom:1px solid #0f1a30;
+  background:rgba(4,4,15,0.85);
+  backdrop-filter:blur(4px);
+  position:relative;
+}
+.hud-block{text-align:center;}
+.hud-label{font-size:9px;letter-spacing:0.15em;color:var(--muted);text-transform:uppercase;}
+.hud-val{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:700;color:var(--accent);}
+#lives-display{display:flex;gap:5px;font-size:1.1rem;}
+.life{color:var(--accent2);}
+
+/* CANVAS AREA */
+#arena{
+  position:relative;
+  width:100%;
+  max-width:800px;
+  flex:1;
+  z-index:5;
+}
+canvas{display:block;width:100%;height:100%;}
+
+/* INPUT */
+#input-bar{
+  width:100%;
+  max-width:800px;
+  padding:12px 20px;
+  background:rgba(4,4,15,0.95);
+  border-top:1px solid #0f1a30;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  z-index:10;
+  position:relative;
+}
+#input-bar span{color:var(--accent);font-size:1.1rem;}
+#word-input{
+  flex:1;
+  background:transparent;
+  border:none;
+  outline:none;
+  font-family:'Share Tech Mono',monospace;
+  font-size:1.1rem;
+  color:var(--yellow);
+  caret-color:var(--accent);
+  letter-spacing:0.08em;
+}
+#word-input::placeholder{color:var(--muted);}
+#combo-display{
+  font-family:'Orbitron',monospace;
+  font-size:0.75rem;
+  color:var(--yellow);
+  min-width:80px;
+  text-align:right;
+}
+
+/* SCREENS */
+.screen{
+  position:fixed;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  z-index:100;
+  background:rgba(4,4,15,0.96);
+  padding:2rem;
+}
+.screen h1{
+  font-family:'Orbitron',monospace;
+  font-size:2.5rem;
+  font-weight:900;
+  color:var(--accent);
+  text-shadow:0 0 30px var(--accent);
+  margin-bottom:0.5rem;
+  text-align:center;
+}
+.screen .sub{
+  font-size:0.85rem;
+  color:var(--muted);
+  margin-bottom:2rem;
+  text-align:center;
+  letter-spacing:0.05em;
+}
+.screen .big-score{
+  font-family:'Orbitron',monospace;
+  font-size:4rem;
+  font-weight:900;
+  color:var(--yellow);
+  text-shadow:0 0 40px var(--yellow);
+  margin-bottom:0.25rem;
+}
+.screen .stat-row{
+  display:flex;
+  gap:2rem;
+  margin-bottom:2rem;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+.screen .stat{text-align:center;}
+.screen .stat-n{font-family:'Orbitron',monospace;font-size:1.5rem;color:var(--accent);font-weight:700;}
+.screen .stat-l{font-size:0.7rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;}
+.btn{
+  font-family:'Orbitron',monospace;
+  font-size:0.85rem;
+  font-weight:700;
+  letter-spacing:0.1em;
+  padding:0.75rem 2.5rem;
+  border-radius:4px;
+  border:2px solid var(--accent);
+  background:transparent;
+  color:var(--accent);
+  cursor:pointer;
+  text-transform:uppercase;
+  transition:all 0.15s;
+  margin:0.4rem;
+}
+.btn:hover{background:var(--accent);color:var(--bg);}
+.btn.danger{border-color:var(--accent2);color:var(--accent2);}
+.btn.danger:hover{background:var(--accent2);color:#fff;}
+
+/* Difficulty pills */
+.diff-row{display:flex;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;justify-content:center;}
+.diff-btn{
+  font-family:'Share Tech Mono',monospace;
+  font-size:0.8rem;
+  padding:0.4rem 1.2rem;
+  border-radius:20px;
+  border:1px solid var(--muted);
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  transition:all 0.15s;
+}
+.diff-btn.active,.diff-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* Wave flash */
+#wave-flash{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-family:'Orbitron',monospace;font-size:2rem;font-weight:900;
+  color:var(--yellow);text-shadow:0 0 40px var(--yellow);
+  pointer-events:none;z-index:50;opacity:0;transition:opacity 0.3s;
+  white-space:nowrap;
+}
+</style>
+</head>
+<body>
+
+<canvas id="stars" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-block">
+    <div class="hud-label">Score</div>
+    <div class="hud-val" id="h-score">0</div>
+  </div>
+  <div class="hud-block">
+    <div class="hud-label">Wave</div>
+    <div class="hud-val" id="h-wave">1</div>
+  </div>
+  <div class="hud-block">
+    <div class="hud-label">Lives</div>
+    <div id="lives-display"></div>
+  </div>
+  <div class="hud-block">
+    <div class="hud-label">Best</div>
+    <div class="hud-val" id="h-best">0</div>
+  </div>
+</div>
+
+<!-- GAME CANVAS -->
+<div id="arena">
+  <canvas id="gc"></canvas>
+</div>
+
+<!-- INPUT -->
+<div id="input-bar">
+  <span>▶</span>
+  <input id="word-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="start typing to fire..."/>
+  <div id="combo-display"></div>
+</div>
+
+<!-- START SCREEN -->
+<div class="screen" id="start-screen">
+  <h1>TYPESTRIKE</h1>
+  <div class="sub">type the word to destroy the alien · don't let them reach earth</div>
+  <div class="diff-row">
+    <button class="diff-btn active" data-diff="easy" onclick="selectDiff(this)">easy</button>
+    <button class="diff-btn" data-diff="normal" onclick="selectDiff(this)">normal</button>
+    <button class="diff-btn" data-diff="hard" onclick="selectDiff(this)">hard</button>
+    <button class="diff-btn" data-diff="insane" onclick="selectDiff(this)">insane</button>
+  </div>
+  <button class="btn" onclick="startGame()">LAUNCH GAME</button>
+</div>
+
+<!-- GAME OVER SCREEN -->
+<div class="screen" id="over-screen" style="display:none">
+  <h1>GAME OVER</h1>
+  <div class="big-score" id="final-score">0</div>
+  <div class="sub">score</div>
+  <div class="stat-row">
+    <div class="stat"><div class="stat-n" id="f-wave">1</div><div class="stat-l">Wave reached</div></div>
+    <div class="stat"><div class="stat-n" id="f-killed">0</div><div class="stat-l">Aliens killed</div></div>
+    <div class="stat"><div class="stat-n" id="f-acc">0%</div><div class="stat-l">Accuracy</div></div>
+    <div class="stat"><div class="stat-n" id="f-combo">0x</div><div class="stat-l">Best combo</div></div>
+  </div>
+  <div>
+    <button class="btn" onclick="startGame()">PLAY AGAIN</button>
+    <button class="btn danger" onclick="showStart()">MENU</button>
+  </div>
+</div>
+
+<div id="wave-flash"></div>
+
+<script>
+// ── STARS BACKGROUND ──────────────────────────────────────────
+const sc = document.getElementById('stars');
+const sx = sc.getContext('2d');
+let starList = [];
+function initStars(){
+  sc.width = window.innerWidth; sc.height = window.innerHeight;
+  starList = Array.from({length:180},()=>({
+    x:Math.random()*sc.width, y:Math.random()*sc.height,
+    r:Math.random()*1.5+0.3, speed:Math.random()*0.3+0.05,
+    opacity:Math.random()*0.6+0.2
+  }));
+}
+function drawStars(){
+  sx.clearRect(0,0,sc.width,sc.height);
+  starList.forEach(s=>{
+    sx.beginPath();
+    sx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    sx.fillStyle=`rgba(180,210,255,${s.opacity})`;
+    sx.fill();
+    s.y+=s.speed;
+    if(s.y>sc.height){s.y=0;s.x=Math.random()*sc.width;}
+  });
+  requestAnimationFrame(drawStars);
+}
+initStars(); drawStars();
+window.addEventListener('resize',initStars);
+
+// ── WORDS ─────────────────────────────────────────────────────
+const EASY_WORDS = ['cat','dog','run','fly','box','sun','red','big','sky','fun','map','win','eat','top','cut','net','hit','gap','fix','low'];
+const NORMAL_WORDS = ['space','alien','laser','shoot','orbit','blast','quest','storm','craft','pilot','speed','power','burst','focus','rapid','sharp','chain','flash','score','combo'];
+const HARD_WORDS = ['quantum','reactor','stellar','gravity','neutron','command','destroy','orbital','vortex','photon','silicon','circuit','mission','warpzone','invasion','defend','proton','scanner','plasma'];
+const INSANE_WORDS = ['hyperdrive','supernova','singularity','antimatter','acceleration','intercept','bombardment','atmospheric','coordinates','interstellar','annihilate','disintegrate','electromagnetic'];
+
+const DIFF = {
+  easy:   {words:EASY_WORDS,   spawnRate:3000, speedBase:0.25, speedInc:0.03, maxAliens:4, lives:5},
+  normal: {words:NORMAL_WORDS, spawnRate:2200, speedBase:0.4,  speedInc:0.05, maxAliens:5, lives:3},
+  hard:   {words:HARD_WORDS,   spawnRate:1600, speedBase:0.6,  speedInc:0.07, maxAliens:6, lives:3},
+  insane: {words:INSANE_WORDS, spawnRate:1000, speedBase:0.9,  speedInc:0.1,  maxAliens:7, lives:2},
+};
+
+// ── GAME STATE ────────────────────────────────────────────────
+let gc, gx, W, H;
+let aliens=[], particles=[], bullets=[], shockwaves=[];
+let score=0, wave=1, lives=3, combo=0, bestCombo=0;
+let killed=0, totalShots=0, hits=0;
+let gameRunning=false;
+let spawnTimer=null;
+let diff='easy', cfg=DIFF.easy;
+let best=+localStorage.getItem('typestrike_best')||0;
+let waveKills=0, waveTarget=10;
+let locked=null; // currently targeted alien
+
+const COLORS=['#ff3366','#aa44ff','#ff8800','#00aaff','#ff44aa'];
+const ALIEN_GLYPHS=['👾','👽','🛸','☠️','🤖'];
+
+function selectDiff(btn){
+  document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  diff=btn.dataset.diff;
+}
+
+function showStart(){
+  document.getElementById('start-screen').style.display='flex';
+  document.getElementById('over-screen').style.display='none';
+  gameRunning=false;
+  clearInterval(spawnTimer);
+}
+
+function startGame(){
+  cfg=DIFF[diff];
+  document.getElementById('start-screen').style.display='none';
+  document.getElementById('over-screen').style.display='none';
+
+  gc=document.getElementById('gc');
+  const arena=document.getElementById('arena');
+  W=gc.width=arena.clientWidth;
+  H=gc.height=arena.clientHeight;
+  gx=gc.getContext('2d');
+
+  aliens=[];particles=[];bullets=[];shockwaves=[];
+  score=0;wave=1;lives=cfg.lives;combo=0;bestCombo=0;
+  killed=0;totalShots=0;hits=0;waveKills=0;waveTarget=8+wave*2;
+  locked=null;
+  gameRunning=true;
+
+  updateHUD();
+  document.getElementById('word-input').value='';
+  document.getElementById('word-input').focus();
+
+  clearInterval(spawnTimer);
+  scheduleSpawn();
+  requestAnimationFrame(loop);
+}
+
+function scheduleSpawn(){
+  spawnTimer=setInterval(()=>{
+    if(!gameRunning) return;
+    if(aliens.length<cfg.maxAliens) spawnAlien();
+  }, cfg.spawnRate);
+}
+
+function spawnAlien(){
+  const words=cfg.words;
+  let word=words[Math.floor(Math.random()*words.length)];
+  // avoid duplicates
+  const existing=aliens.map(a=>a.word);
+  let tries=0;
+  while(existing.includes(word)&&tries<10){word=words[Math.floor(Math.random()*words.length)];tries++;}
+
+  const col=COLORS[Math.floor(Math.random()*COLORS.length)];
+  const glyph=ALIEN_GLYPHS[Math.floor(Math.random()*ALIEN_GLYPHS.length)];
+  const speed=(cfg.speedBase+wave*cfg.speedInc)*(0.8+Math.random()*0.4);
+  aliens.push({
+    word, typed:'', col, glyph,
+    x: 40+Math.random()*(W-80),
+    y: -30,
+    speed,
+    hp: 1,
+    wobble: Math.random()*Math.PI*2,
+    wobbleSpeed: 0.02+Math.random()*0.02,
+    scale: 1,
+    shaking: 0,
+  });
+}
+
+// ── PARTICLES ─────────────────────────────────────────────────
+function spawnExplosion(x,y,col,count=30){
+  for(let i=0;i<count;i++){
+    const angle=Math.random()*Math.PI*2;
+    const speed=1+Math.random()*5;
+    particles.push({
+      x,y,
+      vx:Math.cos(angle)*speed,
+      vy:Math.sin(angle)*speed,
+      col,
+      life:1,
+      decay:0.02+Math.random()*0.03,
+      size:2+Math.random()*4,
+    });
+  }
+  shockwaves.push({x,y,r:0,maxR:80,col,life:1});
+}
+
+function spawnLetterBurst(x,y,word,col){
+  for(let i=0;i<word.length;i++){
+    const angle=-Math.PI/2 + (Math.random()-0.5)*Math.PI;
+    const speed=2+Math.random()*4;
+    particles.push({
+      x:x+(Math.random()-0.5)*40,
+      y,
+      vx:Math.cos(angle)*speed,
+      vy:Math.sin(angle)*speed,
+      col,
+      life:1,
+      decay:0.015+Math.random()*0.02,
+      size:10,
+      letter:word[i],
+      isLetter:true,
+    });
+  }
+}
+
+function spawnBullet(fromX,fromY,toX,toY,col){
+  const dx=toX-fromX, dy=toY-fromY;
+  const dist=Math.sqrt(dx*dx+dy*dy);
+  bullets.push({x:fromX,y:fromY,vx:dx/dist*18,vy:dy/dist*18,col,life:1,tx:toX,ty:toY});
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────
+function loop(){
+  if(!gameRunning) return;
+  gx.clearRect(0,0,W,H);
+
+  drawGround();
+  updateAndDrawAliens();
+  updateAndDrawBullets();
+  updateAndDrawParticles();
+  updateAndDrawShockwaves();
+
+  requestAnimationFrame(loop);
+}
+
+function drawGround(){
+  // earth line
+  gx.save();
+  gx.strokeStyle='rgba(0,255,180,0.15)';
+  gx.lineWidth=1;
+  gx.setLineDash([6,8]);
+  gx.beginPath();
+  gx.moveTo(0,H-2);gx.lineTo(W,H-2);
+  gx.stroke();
+  gx.setLineDash([]);
+  gx.restore();
+}
+
+function updateAndDrawAliens(){
+  for(let i=aliens.length-1;i>=0;i--){
+    const a=aliens[i];
+    a.y+=a.speed;
+    a.wobble+=a.wobbleSpeed;
+    const wx=Math.sin(a.wobble)*18;
+    if(a.shaking>0){a.shaking--;}
+
+    // reached ground
+    if(a.y>H-10){
+      spawnExplosion(a.x+wx,H-20,'#ff3366',20);
+      aliens.splice(i,1);
+      lives--;
+      combo=0;
+      updateHUD();
+      screenShake(8);
+      if(locked===a) locked=null;
+      if(lives<=0){endGame();return;}
+      continue;
+    }
+
+    drawAlien(a, a.x+wx+(a.shaking>0?(Math.random()-0.5)*6:0), a.y);
+  }
+}
+
+function drawAlien(a, x, y){
+  gx.save();
+  const isTarget = locked===a || (locked===null && a===getTargetAlien());
+
+  // glow
+  if(isTarget){
+    gx.shadowColor=a.col;
+    gx.shadowBlur=20;
+  }
+
+  // body: draw alien ship shape
+  gx.translate(x, y);
+  gx.scale(a.scale||1, a.scale||1);
+
+  // Ship body
+  gx.beginPath();
+  gx.ellipse(0,0,22,12,0,0,Math.PI*2);
+  gx.fillStyle=a.col+'33';
+  gx.fill();
+  gx.strokeStyle=a.col;
+  gx.lineWidth=isTarget?2:1.5;
+  gx.stroke();
+
+  // Cockpit
+  gx.beginPath();
+  gx.ellipse(0,-6,10,7,0,0,Math.PI*2);
+  gx.fillStyle=a.col+'55';
+  gx.fill();
+  gx.strokeStyle=a.col;
+  gx.lineWidth=1;
+  gx.stroke();
+
+  // Legs
+  [[-18,8],[-8,10],[8,10],[18,8]].forEach(([lx,ly])=>{
+    gx.beginPath();
+    gx.moveTo(lx-4,6);gx.lineTo(lx,ly+4);gx.lineTo(lx+4,6);
+    gx.strokeStyle=a.col+'aa';
+    gx.lineWidth=1.5;
+    gx.stroke();
+  });
+
+  gx.restore();
+  gx.shadowBlur=0;
+
+  // Word label above alien
+  const typed=a.typed, remaining=a.word.slice(typed.length);
+  const fontSize=13;
+  gx.font=`${fontSize}px 'Share Tech Mono', monospace`;
+  const tw=gx.measureText(a.word).width;
+  const lx=x-tw/2, ly=y-28;
+
+  // bg pill
+  gx.save();
+  gx.fillStyle='rgba(4,4,15,0.85)';
+  roundRect(gx,lx-6,ly-fontSize,tw+12,fontSize+6,4);
+  gx.fill();
+  if(isTarget){
+    gx.strokeStyle=a.col+'88';
+    gx.lineWidth=1;
+    roundRect(gx,lx-6,ly-fontSize,tw+12,fontSize+6,4);
+    gx.stroke();
+  }
+  gx.restore();
+
+  // typed (colored)
+  if(typed.length>0){
+    gx.fillStyle=a.col;
+    gx.font=`bold ${fontSize}px 'Share Tech Mono', monospace`;
+    gx.fillText(typed,lx,ly);
+  }
+  // remaining
+  gx.fillStyle=isTarget?'#ffffff':'#8899aa';
+  gx.font=`${fontSize}px 'Share Tech Mono', monospace`;
+  gx.fillText(remaining, lx+gx.measureText(typed).width, ly);
+
+  // health bar
+  const progress=typed.length/a.word.length;
+  if(progress>0){
+    gx.fillStyle='rgba(255,255,255,0.1)';
+    gx.fillRect(x-20,y+16,40,3);
+    gx.fillStyle=a.col;
+    gx.fillRect(x-20,y+16,40*progress,3);
+  }
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+
+function updateAndDrawBullets(){
+  for(let i=bullets.length-1;i>=0;i--){
+    const b=bullets[i];
+    b.x+=b.vx;b.y+=b.vy;
+    const dist=Math.sqrt((b.x-b.tx)**2+(b.y-b.ty)**2);
+    if(dist<20||b.y<0){bullets.splice(i,1);continue;}
+    // draw laser
+    gx.save();
+    gx.strokeStyle=b.col;
+    gx.lineWidth=2;
+    gx.shadowColor=b.col;gx.shadowBlur=8;
+    gx.beginPath();
+    gx.moveTo(b.x,b.y);
+    gx.lineTo(b.x-b.vx*3,b.y-b.vy*3);
+    gx.stroke();
+    gx.restore();
+  }
+}
+
+function updateAndDrawParticles(){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx;p.y+=p.vy;p.vy+=0.08;p.life-=p.decay;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    gx.save();
+    gx.globalAlpha=p.life;
+    if(p.isLetter){
+      gx.font=`bold ${p.size}px 'Share Tech Mono'`;
+      gx.fillStyle=p.col;
+      gx.shadowColor=p.col;gx.shadowBlur=6;
+      gx.fillText(p.letter,p.x,p.y);
+    } else {
+      gx.fillStyle=p.col;
+      gx.shadowColor=p.col;gx.shadowBlur=4;
+      gx.beginPath();gx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2);gx.fill();
+    }
+    gx.restore();
+  }
+}
+
+function updateAndDrawShockwaves(){
+  for(let i=shockwaves.length-1;i>=0;i--){
+    const s=shockwaves[i];
+    s.r+=4;s.life-=0.05;
+    if(s.life<=0){shockwaves.splice(i,1);continue;}
+    gx.save();
+    gx.globalAlpha=s.life*0.5;
+    gx.strokeStyle=s.col;
+    gx.lineWidth=2;
+    gx.beginPath();gx.arc(s.x,s.y,s.r,0,Math.PI*2);gx.stroke();
+    gx.restore();
+  }
+}
+
+// ── INPUT HANDLING ────────────────────────────────────────────
+function getTargetAlien(){
+  // find lowest alien matching current input
+  const inp=document.getElementById('word-input').value;
+  if(!inp) return locked||null;
+  let best=null, bestY=-1;
+  for(const a of aliens){
+    if(a.word.startsWith(inp) && a.y>bestY){best=a;bestY=a.y;}
+  }
+  return best;
+}
+
+document.getElementById('word-input').addEventListener('input', function(){
+  if(!gameRunning) return;
+  const val=this.value.toLowerCase();
+  this.value=val;
+
+  // find matching alien
+  let target=null;
+  if(locked && locked.word.startsWith(val)) target=locked;
+  else {
+    let bestY=-1;
+    for(const a of aliens){
+      if(a.word.startsWith(val) && a.y>bestY){target=a;bestY=a.y;}
+    }
+  }
+
+  // update typed progress on all aliens
+  for(const a of aliens){
+    if(a===target) a.typed=val;
+    else a.typed='';
+  }
+
+  locked=target||null;
+
+  if(target && val===target.word){
+    killAlien(target);
+    this.value='';
+    locked=null;
+  }
+
+  // wrong key flash
+  if(val.length>0 && !target){
+    totalShots++;
+    this.style.color='#ff3366';
+    setTimeout(()=>this.style.color='',120);
+  }
+});
+
+document.getElementById('word-input').addEventListener('keydown',function(e){
+  if(e.key==='Escape'){this.value='';locked=null;for(const a of aliens)a.typed='';}
+});
+
+function killAlien(a){
+  const wx=a.x+Math.sin(a.wobble)*18;
+  spawnBullet(W/2, H-30, wx, a.y, a.col);
+  setTimeout(()=>{
+    spawnExplosion(wx, a.y, a.col, 40);
+    spawnLetterBurst(wx, a.y, a.word, a.col);
+    shockwaves.push({x:wx,y:a.y,r:0,maxR:100,col:a.col,life:1});
+  }, 80);
+
+  const idx=aliens.indexOf(a);
+  if(idx>-1) aliens.splice(idx,1);
+
+  combo++;
+  if(combo>bestCombo) bestCombo=combo;
+  killed++;
+  waveKills++;
+  totalShots++;
+  hits++;
+
+  // score: longer word = more points, combo multiplier
+  const wordScore=(a.word.length*10)*Math.max(1,Math.floor(combo/3));
+  score+=wordScore;
+
+  updateHUD();
+  showComboFlash(wordScore, wx, a.y);
+
+  if(waveKills>=waveTarget) nextWave();
+}
+
+function showComboFlash(pts, x, y){
+  const el=document.getElementById('combo-display');
+  if(combo>1) el.textContent=`${combo}x COMBO!`;
+  else el.textContent='';
+  // floating score
+  particles.push({
+    x,y:y-20,vx:0,vy:-1.5,
+    col:'#ffe600',life:1,decay:0.012,
+    size:14,letter:`+${pts}`,isLetter:true
+  });
+}
+
+function screenShake(intensity){
+  const arena=document.getElementById('arena');
+  let t=0;
+  const iv=setInterval(()=>{
+    arena.style.transform=`translate(${(Math.random()-0.5)*intensity}px,${(Math.random()-0.5)*intensity}px)`;
+    if(t++>6){arena.style.transform='';clearInterval(iv);}
+  },30);
+}
+
+function nextWave(){
+  wave++;
+  waveKills=0;
+  waveTarget=8+wave*2;
+  updateHUD();
+  const el=document.getElementById('wave-flash');
+  el.textContent=`WAVE ${wave}`;
+  el.style.opacity='1';
+  setTimeout(()=>el.style.opacity='0',1800);
+}
+
+function updateHUD(){
+  document.getElementById('h-score').textContent=score;
+  document.getElementById('h-wave').textContent=wave;
+  document.getElementById('h-best').textContent=Math.max(best,score);
+  const ld=document.getElementById('lives-display');
+  ld.innerHTML=Array.from({length:lives},()=>'<span class="life">♥</span>').join('');
+  if(combo>1) document.getElementById('combo-display').textContent=`${combo}x COMBO!`;
+  else document.getElementById('combo-display').textContent='';
+}
+
+function endGame(){
+  gameRunning=false;
+  clearInterval(spawnTimer);
+  if(score>best){best=score;localStorage.setItem('typestrike_best',best);}
+  document.getElementById('final-score').textContent=score;
+  document.getElementById('f-wave').textContent=wave;
+  document.getElementById('f-killed').textContent=killed;
+  document.getElementById('f-acc').textContent=totalShots>0?Math.round(hits/totalShots*100)+'%':'0%';
+  document.getElementById('f-combo').textContent=bestCombo+'x';
+  document.getElementById('over-screen').style.display='flex';
+}
+
+window.addEventListener('resize',()=>{
+  if(gameRunning){
+    const arena=document.getElementById('arena');
+    W=gc.width=arena.clientWidth;
+    H=gc.height=arena.clientHeight;
+  }
+});
+
+// keep input focused
+document.addEventListener('click',()=>{
+  if(gameRunning) document.getElementById('word-input').focus();
+});
+</script>
+</body>
+</html>
